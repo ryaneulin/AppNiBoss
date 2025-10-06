@@ -262,392 +262,398 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API_BASE = 'http://localhost:5000/api';
-        let token = null;
-        let currentCategory = '';
-        let cart = [];
-        let currentUser = null;
+const API_BASE = 'http://localhost:8000/api';
+let token = null;
+let currentCategory = '';
+let cart = [];
+let currentUser = null;
 
-        // ============ Cart Management ============
-        function addToCart(food) {
-            const existing = cart.find(item => item.id === food.id);
-            if (existing) {
-                existing.quantity++;
-            } else {
-                cart.push({
-                    id: food.id,
-                    name: food.name,
-                    price: food.price,
-                    quantity: 1,
-                    image_url: food.image_url
-                });
-            }
-            updateCartBadge();
-            showToast('Added to cart!', 'success');
-        }
+// ============ Cart Management ============
+function addToCart(food) {
+    const existing = cart.find(item => item.id === food.id);
+    if (existing) {
+        existing.quantity++;
+    } else {
+        cart.push({
+            id: food.id,
+            name: food.name,
+            price: food.price,
+            quantity: 1,
+            image_url: food.image_url
+        });
+    }
+    updateCartBadge();
+    showToast('Added to cart!', 'success');
+}
 
-        function removeFromCart(foodId) {
-            cart = cart.filter(item => item.id !== foodId);
-            updateCartBadge();
+function removeFromCart(foodId) {
+    cart = cart.filter(item => item.id !== foodId);
+    updateCartBadge();
+    displayCart();
+}
+
+function updateQuantity(foodId, delta) {
+    const item = cart.find(item => item.id === foodId);
+    if (item) {
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+            removeFromCart(foodId);
+        } else {
             displayCart();
+            updateCartBadge();
         }
+    }
+}
 
-        function updateQuantity(foodId, delta) {
-            const item = cart.find(item => item.id === foodId);
-            if (item) {
-                item.quantity += delta;
-                if (item.quantity <= 0) {
-                    removeFromCart(foodId);
-                } else {
-                    displayCart();
-                    updateCartBadge();
-                }
-            }
-        }
+function getCartTotal() {
+    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+}
 
-        function getCartTotal() {
-            return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        }
+function updateCartBadge() {
+    const badge = document.getElementById('cartBadge');
+    const count = cart.length;
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
 
-        function updateCartBadge() {
-            const badge = document.getElementById('cartBadge');
-            const count = cart.length;
-            if (count > 0) {
-                badge.textContent = count;
-                badge.style.display = 'block';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
+// ============ Authentication ============
+window.addEventListener('DOMContentLoaded', () => {
+    token = localStorage.getItem('clientToken');
+    if (token) {
+        currentUser = JSON.parse(localStorage.getItem('clientUser'));
+        document.getElementById('mainApp').style.display = 'block';
+        loadHome();
+    } else {
+        document.getElementById('loginPage').style.display = 'block';
+    }
+});
 
-        // ============ Authentication ============
-        window.addEventListener('DOMContentLoaded', () => {
-            token = localStorage.getItem('clientToken');
-            if (token) {
-                currentUser = JSON.parse(localStorage.getItem('clientUser'));
-                document.getElementById('mainApp').style.display = 'block';
-                loadHome();
-            } else {
-                document.getElementById('loginPage').style.display = 'block';
-            }
+function toggleAuthForm() {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    if (loginForm.style.display === 'none') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+    }
+}
+
+document.getElementById('loginFormSubmit').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    try {
+        const res = await fetch(`${API_BASE}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
         });
 
-        function toggleAuthForm() {
-            const loginForm = document.getElementById('loginForm');
-            const registerForm = document.getElementById('registerForm');
-            if (loginForm.style.display === 'none') {
-                loginForm.style.display = 'block';
-                registerForm.style.display = 'none';
-            } else {
-                loginForm.style.display = 'none';
-                registerForm.style.display = 'block';
-            }
-        }
-
-        document.getElementById('loginFormSubmit').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('loginUsername').value;
-            const password = document.getElementById('loginPassword').value;
-
-            try {
-                const res = await fetch(`${API_BASE}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await res.json();
-                if (res.ok && data.user.role === 'client') {
-                    token = data.token;
-                    currentUser = data.user;
-                    localStorage.setItem('clientToken', token);
-                    localStorage.setItem('clientUser', JSON.stringify(currentUser));
-                    document.getElementById('loginPage').style.display = 'none';
-                    document.getElementById('mainApp').style.display = 'block';
-                    loadHome();
-                    showToast('Login successful!', 'success');
-                } else {
-                    showToast('Client access only', 'error');
-                }
-            } catch (err) {
-                showToast('Login failed', 'error');
-            }
-        });
-
-        document.getElementById('registerFormSubmit').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const data = {
-                username: document.getElementById('regUsername').value,
-                password: document.getElementById('regPassword').value,
-                name: document.getElementById('regName').value,
-                phone: document.getElementById('regPhone').value
-            };
-
-            try {
-                const res = await fetch(`${API_BASE}/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (res.ok) {
-                    showToast('Registration successful! Please login.', 'success');
-                    toggleAuthForm();
-                } else {
-                    showToast('Registration failed', 'error');
-                }
-            } catch (err) {
-                showToast('Registration failed', 'error');
-            }
-        });
-
-        function logout() {
-            localStorage.removeItem('clientToken');
-            localStorage.removeItem('clientUser');
-            token = null;
-            currentUser = null;
-            cart = [];
-            document.getElementById('mainApp').style.display = 'none';
-            document.getElementById('loginPage').style.display = 'block';
-            showToast('Logged out successfully', 'success');
-        }
-
-        // ============ Page Navigation ============
-        function showPage(page) {
-            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-            document.getElementById(page + 'Page').style.display = 'block';
-
-            if (page === 'home') loadHome();
-            else if (page === 'cart') displayCart();
-            else if (page === 'orders') loadOrders();
-            else if (page === 'account') loadAccount();
-        }
-
-        // ============ Load Home ============
-        async function loadHome() {
-            const search = document.getElementById('searchInput')?.value || '';
-            const url = `${API_BASE}/foods?category=${currentCategory}&search=${search}`;
-            const res = await fetch(url);
-            const foods = await res.json();
-
-            const html = foods.map(f => `
-                <div class="col-md-4 col-lg-3">
-                    <div class="card food-card shadow-sm">
-                        <img src="${f.image_url}" class="card-img-top" alt="${f.name}">
-                        <div class="card-body">
-                            <h5 class="card-title">${f.name}</h5>
-                            <p class="card-text text-muted small">${f.description}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h4 class="text-primary mb-0">$${f.price.toFixed(2)}</h4>
-                                <button class="btn btn-primary btn-sm" onclick='addToCart(${JSON.stringify(f)})'>
-                                    <i class="fas fa-plus"></i> Add
-                                </button>
-                            </div>
-                            <small class="badge bg-secondary mt-2">${f.category}</small>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            document.getElementById('foodsList').innerHTML = html || '<div class="col-12 text-center"><p>No foods found</p></div>';
-        }
-
-        document.getElementById('searchInput')?.addEventListener('input', loadHome);
-
-        function filterCategory(category, element) {
-            currentCategory = category;
-            document.querySelectorAll('.category-chip').forEach(chip => chip.classList.remove('active'));
-            element.classList.add('active');
+        const data = await res.json();
+        if (res.ok) {  // ✅ FIXED: Removed role check
+            token = data.token;
+            currentUser = data.user;
+            localStorage.setItem('clientToken', token);
+            localStorage.setItem('clientUser', JSON.stringify(currentUser));
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
             loadHome();
+            showToast('Login successful!', 'success');
+        } else {
+            showToast('Login failed', 'error');
         }
+    } catch (err) {
+        showToast('Login failed', 'error');
+    }
+});
 
-        // ============ Display Cart ============
-        function displayCart() {
-            if (cart.length === 0) {
-                document.getElementById('cartItems').innerHTML = `
-                    <div class="text-center py-5">
-                        <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
-                        <h4>Your cart is empty</h4>
-                        <button class="btn btn-primary mt-3" onclick="showPage('home')">Browse Menu</button>
-                    </div>
-                `;
-                document.getElementById('cartSubtotal').textContent = '$0.00';
-                document.getElementById('cartTotal').textContent = '$2.99';
-                return;
-            }
+document.getElementById('registerFormSubmit').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        username: document.getElementById('regUsername').value,
+        password: document.getElementById('regPassword').value,
+        name: document.getElementById('regName').value,
+        phone: document.getElementById('regPhone').value
+    };
 
-            const html = cart.map(item => `
-                <div class="card mb-3 shadow-sm">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-2">
-                                <img src="${item.image_url}" class="img-fluid rounded" alt="${item.name}">
-                            </div>
-                            <div class="col-md-4">
-                                <h5>${item.name}</h5>
-                                <p class="text-muted mb-0">$${item.price.toFixed(2)} each</p>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="btn-group" role="group">
-                                    <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, -1)">-</button>
-                                    <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
-                                    <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, 1)">+</button>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <h5 class="text-primary">$${(item.price * item.quantity).toFixed(2)}</h5>
-                            </div>
-                            <div class="col-md-1">
-                                <button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+    console.log("🔍 DEBUG: Sending registration data:", data);
 
-            document.getElementById('cartItems').innerHTML = html;
-            const subtotal = getCartTotal();
-            document.getElementById('cartSubtotal').textContent = '$' + subtotal.toFixed(2);
-            document.getElementById('cartTotal').textContent = '$' + (subtotal + 2.99).toFixed(2);
-        }
-
-        // ============ Checkout ============
-        async function checkout() {
-            if (cart.length === 0) {
-                showToast('Cart is empty', 'error');
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_BASE}/orders`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        items: cart,
-                        total_price: getCartTotal()
-                    })
-                });
-
-                if (res.ok) {
-                    cart = [];
-                    updateCartBadge();
-                    showToast('Order placed successfully!', 'success');
-                    showPage('orders');
-                } else {
-                    showToast('Checkout failed', 'error');
-                }
-            } catch (err) {
-                showToast('Checkout failed', 'error');
-            }
-        }
-
-        // ============ Load Orders ============
-        async function loadOrders() {
-            try {
-                const res = await fetch(`${API_BASE}/orders`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const orders = await res.json();
-
-                if (orders.length === 0) {
-                    document.getElementById('ordersList').innerHTML = `
-                        <div class="text-center py-5">
-                            <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
-                            <h4>No orders yet</h4>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const html = orders.map(o => `
-                    <div class="card order-card shadow-sm mb-3">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div>
-                                    <h5>Order #${o.id}</h5>
-                                    <small class="text-muted">${o.created_at}</small>
-                                </div>
-                                <span class="status-badge status-${o.status}">${o.status.toUpperCase().replace('_', ' ')}</span>
-                            </div>
-                            <p><strong>Items:</strong> ${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
-                            <h5 class="text-primary">Total: $${o.total_price.toFixed(2)}</h5>
-                        </div>
-                    </div>
-                `).join('');
-
-                document.getElementById('ordersList').innerHTML = html;
-            } catch (err) {
-                showToast('Failed to load orders', 'error');
-            }
-        }
-
-        // ============ Load Account ============
-        async function loadAccount() {
-            try {
-                const res = await fetch(`${API_BASE}/account`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const user = await res.json();
-
-                document.getElementById('accountUsername').value = user.username;
-                document.getElementById('accountName').value = user.name;
-                document.getElementById('accountPhone').value = user.phone;
-            } catch (err) {
-                showToast('Failed to load account', 'error');
-            }
-        }
-
-        document.getElementById('accountForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const data = {
-                name: document.getElementById('accountName').value,
-                phone: document.getElementById('accountPhone').value,
-                password: document.getElementById('accountPassword').value
-            };
-
-            try {
-                const res = await fetch(`${API_BASE}/account`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                if (res.ok) {
-                    showToast('Account updated successfully', 'success');
-                    document.getElementById('accountPassword').value = '';
-                } else {
-                    showToast('Update failed', 'error');
-                }
-            } catch (err) {
-                showToast('Update failed', 'error');
-            }
+    try {
+        const res = await fetch(`${API_BASE}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         });
 
-        // ============ Toast Notifications ============
-        function showToast(message, type) {
-            const toastHtml = `
-                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0 position-fixed bottom-0 end-0 m-3" role="alert">
-                    <div class="d-flex">
-                        <div class="toast-body">${message}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        const responseData = await res.json();
+        console.log("🔍 DEBUG: Server response:", responseData);
+
+        if (res.ok) {
+            showToast('Registration successful! Please login.', 'success');
+            toggleAuthForm();
+        } else {
+            showToast(`Registration failed: ${responseData.message}`, 'error');
+        }
+    } catch (err) {
+        console.error("🔍 DEBUG: Registration error:", err);
+        showToast('Registration failed: ' + err.message, 'error');
+    }
+});
+
+function logout() {
+    localStorage.removeItem('clientToken');
+    localStorage.removeItem('clientUser');
+    token = null;
+    currentUser = null;
+    cart = [];
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('loginPage').style.display = 'block';
+    showToast('Logged out successfully', 'success');
+}
+
+// ============ Page Navigation ============
+function showPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.getElementById(page + 'Page').style.display = 'block';
+
+    if (page === 'home') loadHome();
+    else if (page === 'cart') displayCart();
+    else if (page === 'orders') loadOrders();
+    else if (page === 'account') loadAccount();
+}
+
+// ============ Load Home ============
+async function loadHome() {
+    const search = document.getElementById('searchInput')?.value || '';
+    const url = `${API_BASE}/foods?category=${currentCategory}&search=${search}`;
+    const res = await fetch(url);
+    const foods = await res.json();
+
+    const html = foods.map(f => `
+        <div class="col-md-4 col-lg-3">
+            <div class="card food-card shadow-sm">
+                <img src="${f.image_url}" class="card-img-top" alt="${f.name}">
+                <div class="card-body">
+                    <h5 class="card-title">${f.name}</h5>
+                    <p class="card-text text-muted small">${f.description}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="text-primary mb-0">$${f.price.toFixed(2)}</h4>
+                        <button class="btn btn-primary btn-sm" onclick='addToCart(${JSON.stringify(f)})'>
+                            <i class="fas fa-plus"></i> Add
+                        </button>
                     </div>
+                    <small class="badge bg-secondary mt-2">${f.category}</small>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('foodsList').innerHTML = html || '<div class="col-12 text-center"><p>No foods found</p></div>';
+}
+
+document.getElementById('searchInput')?.addEventListener('input', loadHome);
+
+function filterCategory(category, element) {
+    currentCategory = category;
+    document.querySelectorAll('.category-chip').forEach(chip => chip.classList.remove('active'));
+    element.classList.add('active');
+    loadHome();
+}
+
+// ============ Display Cart ============
+function displayCart() {
+    if (cart.length === 0) {
+        document.getElementById('cartItems').innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                <h4>Your cart is empty</h4>
+                <button class="btn btn-primary mt-3" onclick="showPage('home')">Browse Menu</button>
+            </div>
+        `;
+        document.getElementById('cartSubtotal').textContent = '$0.00';
+        document.getElementById('cartTotal').textContent = '$2.99';
+        return;
+    }
+
+    const html = cart.map(item => `
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-2">
+                        <img src="${item.image_url}" class="img-fluid rounded" alt="${item.name}">
+                    </div>
+                    <div class="col-md-4">
+                        <h5>${item.name}</h5>
+                        <p class="text-muted mb-0">$${item.price.toFixed(2)} each</p>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, -1)">-</button>
+                            <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <h5 class="text-primary">$${(item.price * item.quantity).toFixed(2)}</h5>
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('cartItems').innerHTML = html;
+    const subtotal = getCartTotal();
+    document.getElementById('cartSubtotal').textContent = '$' + subtotal.toFixed(2);
+    document.getElementById('cartTotal').textContent = '$' + (subtotal + 2.99).toFixed(2);
+}
+
+// ============ Checkout ============
+async function checkout() {
+    if (cart.length === 0) {
+        showToast('Cart is empty', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/orders`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                items: cart,
+                total_price: getCartTotal()
+            })
+        });
+
+        if (res.ok) {
+            cart = [];
+            updateCartBadge();
+            showToast('Order placed successfully!', 'success');
+            showPage('orders');
+        } else {
+            showToast('Checkout failed', 'error');
+        }
+    } catch (err) {
+        showToast('Checkout failed', 'error');
+    }
+}
+
+// ============ Load Orders ============
+async function loadOrders() {
+    try {
+        const res = await fetch(`${API_BASE}/orders`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const orders = await res.json();
+
+        if (orders.length === 0) {
+            document.getElementById('ordersList').innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
+                    <h4>No orders yet</h4>
                 </div>
             `;
-            document.body.insertAdjacentHTML('beforeend', toastHtml);
-            const toastEl = document.querySelector('.toast:last-child');
-            const toast = new bootstrap.Toast(toastEl);
-            toast.show();
-            setTimeout(() => toastEl.remove(), 3000);
+            return;
         }
+
+        const html = orders.map(o => `
+            <div class="card order-card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5>Order #${o.id}</h5>
+                            <small class="text-muted">${o.created_at}</small>
+                        </div>
+                        <span class="status-badge status-${o.status}">${o.status.toUpperCase().replace('_', ' ')}</span>
+                    </div>
+                    <p><strong>Items:</strong> ${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
+                    <h5 class="text-primary">Total: $${o.total_price.toFixed(2)}</h5>
+                </div>
+            </div>
+        `).join('');
+
+        document.getElementById('ordersList').innerHTML = html;
+    } catch (err) {
+        showToast('Failed to load orders', 'error');
+    }
+}
+
+// ============ Load Account ============
+async function loadAccount() {
+    try {
+        const res = await fetch(`${API_BASE}/account`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const user = await res.json();
+
+        document.getElementById('accountUsername').value = user.username;
+        document.getElementById('accountName').value = user.name;
+        document.getElementById('accountPhone').value = user.phone;
+    } catch (err) {
+        showToast('Failed to load account', 'error');
+    }
+}
+
+document.getElementById('accountForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+        name: document.getElementById('accountName').value,
+        phone: document.getElementById('accountPhone').value,
+        password: document.getElementById('accountPassword').value
+    };
+
+    try {
+        const res = await fetch(`${API_BASE}/account`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            showToast('Account updated successfully', 'success');
+            document.getElementById('accountPassword').value = '';
+        } else {
+            showToast('Update failed', 'error');
+        }
+    } catch (err) {
+        showToast('Update failed', 'error');
+    }
+});
+
+// ============ Toast Notifications ============
+function showToast(message, type) {
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0 position-fixed bottom-0 end-0 m-3" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    const toastEl = document.querySelector('.toast:last-child');
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+    setTimeout(() => toastEl.remove(), 3000);
+}
     </script>
 </body>
 </html>
