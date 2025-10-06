@@ -2,15 +2,21 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
+import json
 import jwt
 import datetime
 from functools import wraps
+from flask import render_template
+import os 
+from dotenv import load_dotenv
+import re
 
+load_dotenv()
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///food_ordering.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-only')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///food_ordering.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 CORS(app)
 
@@ -73,10 +79,40 @@ def admin_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
+# ============ PASSWORD VALIDATION FUNCTION ============
+def validate_password(password):
+    """
+    Validate password strength
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter"
+    
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter"
+    
+    if not re.search(r"\d", password):
+        return False, "Password must contain at least one number"
+    
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "Password must contain at least one special character (!@#$% etc.)"
+    
+    return True, "Password is strong"
+
+
+
 # ============ AUTH ROUTES ============
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
+    
+    # ✅ ADD THIS VALIDATION CALL
+    is_valid, message = validate_password(data['password'])
+    if not is_valid:
+        return jsonify({'message': message}), 400
+    
     hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
     
     new_user = User(
@@ -99,8 +135,6 @@ def register():
         return jsonify({'message': 'User registered successfully'}), 201
     except:
         return jsonify({'message': 'Username already exists'}), 400
-
-@app.route('/api/login', methods=['POST'])
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -330,18 +364,6 @@ def update_account(current_user):
 def init_db():
     db.create_all()
     
-    # Create sample admin
-    admin = User.query.filter_by(username='admin').first()
-    if not admin:
-        admin = User(
-            username='admin',
-            password=generate_password_hash('admin123', method='pbkdf2:sha256'),
-            name='Admin User',
-            phone='1234567890',
-            role='admin'
-        )
-        db.session.add(admin)
-    
     # Create sample foods
     if Food.query.count() == 0:
         foods = [
@@ -351,13 +373,23 @@ def init_db():
             Food(name='Pizza', category='Lunch', price=12.99, image_url='https://via.placeholder.com/200', description='Margherita pizza'),
             Food(name='Fries', category='Snacks', price=3.99, image_url='https://via.placeholder.com/200', description='Crispy french fries'),
             Food(name='Wings', category='Snacks', price=7.99, image_url='https://via.placeholder.com/200', description='Spicy chicken wings')
-        ]
+            ]
         db.session.add_all(foods)
     
     db.session.commit()
     return jsonify({'message': 'Database initialized successfully'}), 200
 
+# ===================== FRONTEND ROUTES =====================
+@app.route('/')
+def client_page():
+    return render_template('client.html')
+
+@app.route('/admin')
+def admin_page():
+    return render_template('admin.html')
+
+# ===================== START APP =====================
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8000)
