@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Ordering - Admin</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 70px; background: #f8f9fa; }
+        .navbar-brand { font-weight: bold; font-size: 1.5rem; }
+        .food-card { 
+            margin-bottom: 20px; 
+            transition: transform 0.2s;
+        }
+        .food-card:hover { transform: translateY(-5px); }
+        .food-card img { height: 200px; object-fit: cover; }
+        .category-chip { 
+            cursor: pointer; 
+            transition: all 0.3s;
+        }
+        .category-chip:hover { transform: scale(1.05); }
+        .category-chip.active { 
+            background: #0d6efd !important; 
+            color: white !important;
+        }
+        #loginPage, #mainApp { display: none; }
+        .hero-section {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+        .order-card {
+            border-left: 4px solid #dc3545;
+            margin-bottom: 15px;
+        }
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .status-in_process { background: #ffc107; color: #000; }
+        .status-ready { background: #17a2b8; color: #fff; }
+        .status-delivered { background: #28a745; color: #fff; }
+        .admin-stats {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger fixed-top shadow">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="fas fa-crown"></i> FoodHub Admin</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showPage('home')"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showPage('orders')"><i class="fas fa-receipt"></i> Orders</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showPage('menu')"><i class="fas fa-utensils"></i> Menu</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="showPage('account')"><i class="fas fa-user"></i> Account</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Page -->
+    <div id="loginPage" class="container">
+        <div class="row justify-content-center" style="margin-top: 100px;">
+            <div class="col-md-5">
+                <div class="card shadow-lg">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-crown fa-3x text-danger"></i>
+                            <h3 class="mt-3">Admin Portal</h3>
+                            <p class="text-muted">FoodHub Management System</p>
+                        </div>
+                        
+                        <form id="loginForm">
+                            <h5 class="mb-3">Admin Login</h5>
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-user"></i> Username</label>
+                                <input type="text" class="form-control" id="loginUsername" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-lock"></i> Password</label>
+                                <input type="password" class="form-control" id="loginPassword" required>
+                            </div>
+                            <button type="submit" class="btn btn-danger w-100 mb-3">Login</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="container">
+        <!-- Dashboard Page -->
+        <div id="homePage" class="page">
+            <div class="hero-section text-center">
+                <h1><i class="fas fa-chart-line"></i> Admin Dashboard</h1>
+                <p class="lead">Manage your food ordering system</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="admin-stats text-center">
+                        <i class="fas fa-receipt fa-2x text-primary mb-2"></i>
+                        <h3 id="totalOrders">0</h3>
+                        <p class="text-muted">Total Orders</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="admin-stats text-center">
+                        <i class="fas fa-utensils fa-2x text-success mb-2"></i>
+                        <h3 id="totalFoods">0</h3>
+                        <p class="text-muted">Menu Items</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="admin-stats text-center">
+                        <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                        <h3 id="pendingOrders">0</h3>
+                        <p class="text-muted">Pending Orders</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="admin-stats text-center">
+                        <i class="fas fa-check-circle fa-2x text-info mb-2"></i>
+                        <h3 id="completedOrders">0</h3>
+                        <p class="text-muted">Completed</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Orders -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Recent Orders</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recentOrders"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Page -->
+        <div id="ordersPage" class="page" style="display:none;">
+            <h2 class="mb-4"><i class="fas fa-receipt"></i> Manage Orders</h2>
+            <div id="ordersList"></div>
+        </div>
+
+        <!-- Menu Management Page -->
+        <div id="menuPage" class="page" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-utensils"></i> Menu Management</h2>
+                <button class="btn btn-success" onclick="showAddFoodModal()">
+                    <i class="fas fa-plus"></i> Add New Food
+                </button>
+            </div>
+            <div id="menuList" class="row"></div>
+        </div>
+
+        <!-- Account Page -->
+        <div id="accountPage" class="page" style="display:none;">
+            <h2 class="mb-4"><i class="fas fa-user-circle"></i> Account Settings</h2>
+            <div class="row">
+                <div class="col-md-6 mx-auto">
+                    <div class="card shadow-sm">
+                        <div class="card-body p-4">
+                            <form id="accountForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="accountUsername" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="accountName" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" id="accountPhone" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">New Password (leave blank to keep current)</label>
+                                    <input type="password" class="form-control" id="accountPassword">
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="fas fa-save"></i> Update Account
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Food Modal -->
+    <div class="modal fade" id="foodModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add/Edit Food</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="foodForm">
+                        <input type="hidden" id="foodId">
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="foodName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Category</label>
+                            <select class="form-control" id="foodCategory" required>
+                                <option value="Breakfast">Breakfast</option>
+                                <option value="Lunch">Lunch</option>
+                                <option value="Snacks">Snacks</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Price</label>
+                            <input type="number" step="0.01" class="form-control" id="foodPrice" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Image URL</label>
+                            <input type="text" class="form-control" id="foodImage">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="foodDescription" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100">Save Food</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:8000/api'; // ✅ FIXED: Correct port
+        let token = null;
+        let foodModal;
+
+        // Check authentication on load
+        window.addEventListener('DOMContentLoaded', () => {
+            token = localStorage.getItem('adminToken');
+            foodModal = new bootstrap.Modal(document.getElementById('foodModal'));
+            
+            if (token) {
+                document.getElementById('mainApp').style.display = 'block';
+                loadDashboard();
+            } else {
+                document.getElementById('loginPage').style.display = 'block';
+            }
+        });
+
+        // Login with better error handling
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const res = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.user.role === 'admin') {
+                    token = data.token;
+                    localStorage.setItem('adminToken', token);
+                    document.getElementById('loginPage').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    loadDashboard();
+                    showToast('Admin login successful!', 'success');
+                } else {
+                    showToast('Admin access required', 'error');
+                }
+            } catch (err) {
+                showToast('Login failed: ' + err.message, 'error');
+            }
+        });
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('adminToken');
+            token = null;
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('loginPage').style.display = 'block';
+            showToast('Logged out successfully', 'success');
+        }
+
+        // Show page
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            document.getElementById(page + 'Page').style.display = 'block';
+
+            if (page === 'home') loadDashboard();
+            else if (page === 'orders') loadOrders();
+            else if (page === 'menu') loadMenu();
+            else if (page === 'account') loadAccount();
+        }
+
+        // Load Dashboard with stats
+        async function loadDashboard() {
+            try {
+                // Load orders for stats
+                const ordersRes = await fetch(`${API_BASE}/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const orders = await ordersRes.json();
+
+                // Load foods for stats
+                const foodsRes = await fetch(`${API_BASE}/foods`);
+                const foods = await foodsRes.json();
+
+                // Update stats
+                document.getElementById('totalOrders').textContent = orders.length;
+                document.getElementById('totalFoods').textContent = foods.length;
+                document.getElementById('pendingOrders').textContent = orders.filter(o => o.status === 'in_process').length;
+                document.getElementById('completedOrders').textContent = orders.filter(o => o.status === 'delivered').length;
+
+                // Show recent orders (last 5)
+                const recentOrders = orders.slice(-5).reverse();
+                const recentHtml = recentOrders.map(o => `
+                    <div class="card order-card shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6>Order #${o.id} - ${o.user_name}</h6>
+                                    <small class="text-muted">${o.created_at}</small>
+                                </div>
+                                <span class="status-badge status-${o.status}">${o.status.toUpperCase().replace('_', ' ')}</span>
+                            </div>
+                            <p class="mb-1"><strong>Items:</strong> ${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
+                            <h6 class="text-primary mb-0">Total: ₱${o.total_price.toFixed(2)}</h6>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('recentOrders').innerHTML = recentHtml || '<p class="text-muted">No recent orders</p>';
+
+            } catch (err) {
+                showToast('Failed to load dashboard', 'error');
+            }
+        }
+
+        // Load Orders
+        async function loadOrders() {
+            try {
+                const res = await fetch(`${API_BASE}/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const orders = await res.json();
+
+                if (orders.length === 0) {
+                    document.getElementById('ordersList').innerHTML = `
+                        <div class="text-center py-5">
+                            <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
+                            <h4>No orders yet</h4>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const html = orders.reverse().map(o => `
+                    <div class="card order-card shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5>Order #${o.id} - ${o.user_name}</h5>
+                                    <small class="text-muted">${o.created_at}</small>
+                                </div>
+                                <span class="status-badge status-${o.status}">${o.status.toUpperCase().replace('_', ' ')}</span>
+                            </div>
+                            <p><strong>Items:</strong> ${o.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}</p>
+                            <h5 class="text-primary">Total: ₱${o.total_price.toFixed(2)}</h5>
+                            <div class="mt-3">
+                                <button class="btn btn-warning btn-sm" onclick="updateOrderStatus(${o.id}, 'in_process')">In Process</button>
+                                <button class="btn btn-info btn-sm" onclick="updateOrderStatus(${o.id}, 'ready')">Ready</button>
+                                <button class="btn btn-success btn-sm" onclick="updateOrderStatus(${o.id}, 'delivered')">Delivered</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('ordersList').innerHTML = html;
+            } catch (err) {
+                showToast('Failed to load orders', 'error');
+            }
+        }
+
+        async function updateOrderStatus(orderId, status) {
+            try {
+                const res = await fetch(`${API_BASE}/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                if (res.ok) {
+                    showToast('Order status updated!', 'success');
+                    loadOrders();
+                } else {
+                    showToast('Failed to update order', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to update order', 'error');
+            }
+        }
+
+        // Load Menu
+        async function loadMenu() {
+            try {
+                const res = await fetch(`${API_BASE}/foods`);
+                const foods = await res.json();
+
+                if (foods.length === 0) {
+                    document.getElementById('menuList').innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <i class="fas fa-utensils fa-4x text-muted mb-3"></i>
+                            <h4>No food items</h4>
+                            <p>Add your first food item to get started!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const html = foods.map(f => `
+                    <div class="col-md-4 col-lg-3">
+                        <div class="card food-card shadow-sm">
+                            <img src="${f.image_url}" class="card-img-top" alt="${f.name}">
+                            <div class="card-body">
+                                <h5 class="card-title">${f.name}</h5>
+                                <p class="card-text text-muted small">${f.description}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h4 class="text-primary mb-0">₱${f.price.toFixed(2)}</h4>
+                                    <div>
+                                        <button class="btn btn-warning btn-sm" onclick="editFood(${f.id})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteFood(${f.id})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="badge bg-secondary mt-2">${f.category}</small>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('menuList').innerHTML = html;
+            } catch (err) {
+                showToast('Failed to load menu', 'error');
+            }
+        }
+
+        function showAddFoodModal() {
+            document.getElementById('foodForm').reset();
+            document.getElementById('foodId').value = '';
+            foodModal.show();
+        }
+
+        async function editFood(id) {
+            try {
+                const res = await fetch(`${API_BASE}/foods/${id}`);
+                const food = await res.json();
+
+                document.getElementById('foodId').value = food.id;
+                document.getElementById('foodName').value = food.name;
+                document.getElementById('foodCategory').value = food.category;
+                document.getElementById('foodPrice').value = food.price;
+                document.getElementById('foodImage').value = food.image_url;
+                document.getElementById('foodDescription').value = food.description;
+
+                foodModal.show();
+            } catch (err) {
+                showToast('Failed to load food details', 'error');
+            }
+        }
+
+        async function deleteFood(id) {
+            if (!confirm('Are you sure you want to delete this food item?')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/foods/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    showToast('Food item deleted!', 'success');
+                    loadMenu();
+                } else {
+                    showToast('Failed to delete food', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to delete food', 'error');
+            }
+        }
+
+        // Food Form Submit
+        document.getElementById('foodForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const foodId = document.getElementById('foodId').value;
+            const foodData = {
+                name: document.getElementById('foodName').value,
+                category: document.getElementById('foodCategory').value,
+                price: parseFloat(document.getElementById('foodPrice').value),
+                image_url: document.getElementById('foodImage').value,
+                description: document.getElementById('foodDescription').value
+            };
+
+            const method = foodId ? 'PUT' : 'POST';
+            const url = foodId ? `${API_BASE}/foods/${foodId}` : `${API_BASE}/foods`;
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(foodData)
+                });
+
+                if (res.ok) {
+                    foodModal.hide();
+                    showToast(`Food ${foodId ? 'updated' : 'added'} successfully!`, 'success');
+                    loadMenu();
+                } else {
+                    showToast('Failed to save food', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to save food', 'error');
+            }
+        });
+
+        // Load Account
+        async function loadAccount() {
+            try {
+                const res = await fetch(`${API_BASE}/account`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const user = await res.json();
+
+                document.getElementById('accountUsername').value = user.username;
+                document.getElementById('accountName').value = user.name;
+                document.getElementById('accountPhone').value = user.phone;
+            } catch (err) {
+                showToast('Failed to load account', 'error');
+            }
+        }
+
+        // Account Form Submit
+        document.getElementById('accountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const accountData = {
+                name: document.getElementById('accountName').value,
+                phone: document.getElementById('accountPhone').value
+            };
+
+            const password = document.getElementById('accountPassword').value;
+            if (password) {
+                accountData.password = password;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/account`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(accountData)
+                });
+
+                if (res.ok) {
+                    showToast('Account updated successfully', 'success');
+                    document.getElementById('accountPassword').value = '';
+                } else {
+                    showToast('Update failed', 'error');
+                }
+            } catch (err) {
+                showToast('Update failed', 'error');
+            }
+        });
+
+        // Toast Notifications (same as client)
+        function showToast(message, type) {
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0 position-fixed bottom-0 end-0 m-3" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', toastHtml);
+            const toastEl = document.querySelector('.toast:last-child');
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+            setTimeout(() => toastEl.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
