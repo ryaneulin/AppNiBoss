@@ -10,12 +10,13 @@ from flask import render_template
 import os 
 from dotenv import load_dotenv
 import re
+from flask import send_file
 
 load_dotenv()
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-only')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///food_ordering.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///food_ordering.db') + '?check_same_thread=False&timeout=20'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 CORS(app)
@@ -516,4 +517,4 @@ def admin_page():
 if __name__ == '__main__':
     with app.app_context():
         initialize_database()
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8000, threaded=True)
